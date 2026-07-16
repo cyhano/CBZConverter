@@ -21,21 +21,13 @@ class PdfNamingStrategy(
         val baseNames = filesUri.map { it.displayName() }
         val baseNamesNoExt = baseNames.map { it.substringBeforeLast('.', it) }
 
-        // Resolve placeholders by falling back to parent directory names
+        // Resolve placeholders by falling back to file name itself
         val adjustedBaseNamesNoExt = baseNamesNoExt.toMutableList()
         if (!useParentDirectoryName) {
             filesUri.forEachIndexed { index, uri ->
-                val initialParent = DocumentFile.fromSingleUri(context, uri)?.parentFile?.name
-                    ?: uri.pathSegments.dropLast(1).lastOrNull()
-
-                val resolvedParent =
-                    initialParent?.takeUnless { isPlaceholderName(it) }
-                        ?: run {
-                            val base = baseNamesNoExt[index]
-                            if (!isPlaceholderName(base)) base else "Unknown"
-                        }
-
-                adjustedBaseNamesNoExt[index] = resolvedParent
+                if (isPlaceholderName(adjustedBaseNamesNoExt[index])) {
+                    adjustedBaseNamesNoExt[index] = "cbz_${index + 1}"
+                }
             }
 
             return when {

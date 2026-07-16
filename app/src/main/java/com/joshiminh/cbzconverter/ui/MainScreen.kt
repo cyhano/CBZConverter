@@ -29,22 +29,17 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
     val hasOut by viewModel.hasWritableOutputDirectory.collectAsState()
     val compress by viewModel.compressOutputPdf.collectAsState()
     val autoName by viewModel.autoNameWithChapters.collectAsState()
-    val mihonDirUri by viewModel.mihonDirectoryUri.collectAsState()
-    val mihonManga by viewModel.mihonMangaEntries.collectAsState()
-    val isLoading by viewModel.isLoadingMihonManga.collectAsState()
-    val progress by viewModel.mihonLoadProgress.collectAsState()
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.updateSelectedFileUrisFromUserInput(it) }
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateOverrideOutputPathFromUserInput(it) } }
-    val mihonPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateMihonDirectoryUri(it) } }
 
     Scaffold { inner ->
         Column(Modifier.padding(inner).fillMaxSize()) {
             MihonMode(
-                viewModel, activity, isConverting, fileName, fileUri, canMerge, mihonManga,
+                viewModel, activity, isConverting, fileName, fileUri, canMerge,
                 taskStatus, subTaskStatus, batchSize, pageWidth, overrideMerge, outUri, hasOut,
-                compress, autoName, filePicker, dirPicker, mihonDirUri, isLoading, progress
-            ) { viewModel.checkPermissionAndSelectDirectoryAction(activity, mihonPicker) }
+                compress, autoName, filePicker, dirPicker
+            ) { viewModel.checkPermissionAndSelectFileAction(activity, filePicker) }
         }
     }
 }

@@ -205,7 +205,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         }
     }
 
-    fun convertToPDF(fileUris: List<Uri>, useParent: Boolean = false) {
+    fun convertToPDF(fileUris: List<Uri>) {
         if (_isCurrentlyConverting.value) return
         refreshOutputDirectoryAvailability()
         val folder = getOutputFolder() ?: run {
@@ -217,7 +217,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
             _isCurrentlyConverting.update { true }
             try {
                 val names = namingStrategy.getPdfFileNames(
-                    fileUris, useParent, "", _overrideMergeFiles.value, _autoNameWithChapters.value
+                    fileUris, false, "", _overrideMergeFiles.value, _autoNameWithChapters.value
                 )
                 val resolvedNames = namingStrategy.resolveFileNameConflicts(names, folder)
                 setTask("Converting...")
