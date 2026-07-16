@@ -31,61 +31,10 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Diagnose keystore secret
-        id: diag
-        run: |
-          python3 -c "
-          import base64, os
-          secret = os.environ.get('KEYSTORE_B64', '')
-          print(f'>>> Secret length: {len(secret)}')
-          print(f'>>> First 40 chars: [{secret[:40]}]')
-          print(f'>>> Last 40 chars: [{secret[-40:]}]')
-          if not secret:
-              print('>>> ERROR: Secret is EMPTY! Not set or name mismatch.')
-          else:
-              clean = secret.strip().replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
-              print(f'>>> Cleaned length: {len(clean)}')
-              try:
-                  data = base64.b64decode(clean, validate=True)
-                  with open('app/cbzconverter.jks', 'wb') as f:
-                      f.write(data)
-                  print(f'>>> SUCCESS: Keystore written: {len(data)} bytes')
-              except Exception as e:
-                  print(f'>>> DECODE ERROR: {e}')
-                  # Try without validation
-                  try:
-                      data = base64.b64decode(clean)
-                      with open('app/cbzconverter.jks', 'wb') as f:
-                          f.write(data)
-                      print(f'>>> SUCCESS (no validate): Keystore written: {len(data)} bytes')
-                  except Exception as e2:
-                      print(f'>>> DECODE ERROR (no validate): {e2}')
-          " > diag_output.txt 2>&1
-          cat diag_output.txt
-        env:
-          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
-
-      - name: Upload diagnostic log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostic-log.txt
-          path: diag_output.txt
-
-      - name: Verify keystore
-        if: success()
-        run: |
-          ls -la app/cbzconverter.jks
-          file app/cbzconverter.jks
-
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
       - name: Build Release APK
-        env:
-          SIGNING_STORE_PASSWORD: *** secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: *** secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
       - name: Upload Debug APK

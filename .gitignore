@@ -17,5 +17,5 @@ local.properties
 /.idea
 
 # Signing
-*.jks
-*.keystore
+#*.jks
+#*.keystore
