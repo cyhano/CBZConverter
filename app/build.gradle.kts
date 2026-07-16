@@ -30,6 +30,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -44,6 +45,15 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("cbzconverter.jks")
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: "cbzconverter123"
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "cbzconverter"
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: "cbzconverter123"
+        }
     }
 }
 

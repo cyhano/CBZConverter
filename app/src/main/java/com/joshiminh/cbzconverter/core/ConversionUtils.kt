@@ -158,7 +158,7 @@ private fun writePdf(
     val writer = if (props != null) PdfWriter(out.absolutePath, props) else PdfWriter(out.absolutePath)
     PdfDocument(writer).use { pdfDoc ->
         Document(pdfDoc, PageSize.LETTER).use { doc ->
-            doc.setMargins(15f, 10f, 15f, 10f)
+            doc.setMargins(0f, 0f, 0f, 0f)
             entries.forEachIndexed { i, entry ->
                 subStepAction(msg(i + 1))
                 ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress)
@@ -176,7 +176,7 @@ private fun writePdfSaf(
     val writer = if (props != null) PdfWriter(stream, props) else PdfWriter(stream)
     PdfDocument(writer).use { pdfDoc ->
         Document(pdfDoc, PageSize.LETTER).use { doc ->
-            doc.setMargins(15f, 10f, 15f, 10f)
+            doc.setMargins(0f, 0f, 0f, 0f)
             entries.forEachIndexed { i, entry ->
                 subStepAction(msg(i + 1))
                 ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress)

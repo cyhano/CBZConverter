@@ -42,6 +42,7 @@ object ImageProcessor {
 
             val pdfImg = Image(ImageDataFactory.create(processed.absolutePath))
             document.pdfDocument.defaultPageSize = PageSize(pdfImg.imageWidth, pdfImg.imageHeight)
+            pdfImg.setFixedPosition(0f, 0f)
             document.add(pdfImg).flush()
 
             if (processed != baseFile) processed.delete()
