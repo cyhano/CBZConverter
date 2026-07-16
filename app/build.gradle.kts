@@ -50,9 +50,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("cbzconverter.jks")
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: "cbzconverter123"
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "cbzconverter"
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: "cbzconverter123"
+            storePassword = "cbzconverter123"
+            keyAlias = "cbzconverter"
+            keyPassword = "cbzconverter123"
         }
     }
 }
