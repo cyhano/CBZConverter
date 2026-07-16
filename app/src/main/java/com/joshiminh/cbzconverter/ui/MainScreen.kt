@@ -28,7 +28,6 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
     val outUri by viewModel.overrideOutputDirectoryUri.collectAsState()
     val hasOut by viewModel.hasWritableOutputDirectory.collectAsState()
     val compress by viewModel.compressOutputPdf.collectAsState()
-    val autoName by viewModel.autoNameWithChapters.collectAsState()
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.updateSelectedFileUrisFromUserInput(it) }
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateOverrideOutputPathFromUserInput(it) } }
@@ -38,7 +37,7 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
             MihonMode(
                 viewModel, activity, isConverting, fileName, fileUri, canMerge,
                 taskStatus, subTaskStatus, batchSize, pageWidth, overrideMerge, outUri, hasOut,
-                compress, autoName, filePicker, dirPicker
+                compress, filePicker, dirPicker
             ) { viewModel.checkPermissionAndSelectFileAction(activity, filePicker) }
         }
     }

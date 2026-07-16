@@ -29,7 +29,7 @@ fun MihonMode(
     selectedFileName: String, selectedFilesUri: List<Uri>, canMergeSelection: Boolean,
     currentTaskStatus: String, currentSubTaskStatus: String,
     batchSize: Int, pageWidth: Float, overrideMerge: Boolean, overrideOutUri: Uri?,
-    hasOut: Boolean, compress: Boolean, autoName: Boolean,
+    hasOut: Boolean, compress: Boolean,
     fileLauncher: ManagedActivityResultLauncher<Array<String>, List<Uri>>,
     dirLauncher: ManagedActivityResultLauncher<Uri?, Uri?>,
     onSelectFiles: () -> Unit
@@ -69,8 +69,6 @@ fun MihonMode(
                         ConfigSwitchItem("Merge All", "Combine selected CBZs", overrideMerge, !isCurrentlyConverting) { viewModel.toggleMergeFilesOverride(it) }
                         Spacer12Divider()
                         ConfigSwitchItem("Compress", "Reduce file size", compress, !isCurrentlyConverting) { viewModel.toggleCompressOutputPdf(it) }
-                        Spacer12Divider()
-                        ConfigSwitchItem("Autonaming", "Use chapter numbers", autoName, !isCurrentlyConverting) { viewModel.toggleAutoNameWithChapters(it) }
                         Spacer12Divider()
                         ConfigButtonItem("Output Folder", "Where to save PDFs", overrideOutUri?.toString() ?: "Not set", "Select Folder", !isCurrentlyConverting) { viewModel.checkPermissionAndSelectDirectoryAction(activity, dirLauncher) }
                     }

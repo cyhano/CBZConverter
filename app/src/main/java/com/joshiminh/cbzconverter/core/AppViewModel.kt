@@ -70,8 +70,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _compressOutputPdf = MutableStateFlow(false)
     val compressOutputPdf = _compressOutputPdf.asStateFlow()
 
-    private val _autoNameWithChapters = MutableStateFlow(false)
-    val autoNameWithChapters = _autoNameWithChapters.asStateFlow()
 
     private val _mihonDirectoryUri = MutableStateFlow<Uri?>(null)
     val mihonDirectoryUri = _mihonDirectoryUri.asStateFlow()
@@ -104,7 +102,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
 
     fun toggleMergeFilesOverride(v: Boolean) { _overrideMergeFiles.update { v } }
     fun toggleCompressOutputPdf(v: Boolean) { _compressOutputPdf.update { v } }
-    fun toggleAutoNameWithChapters(v: Boolean) { _autoNameWithChapters.update { v } }
 
     fun updateMihonDirectoryUri(newUri: Uri) {
         _mihonDirectoryUri.update { newUri }
@@ -217,7 +214,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
             _isCurrentlyConverting.update { true }
             try {
                 val names = namingStrategy.getPdfFileNames(
-                    fileUris, false, "", _overrideMergeFiles.value, _autoNameWithChapters.value
+                    fileUris, false, "", _overrideMergeFiles.value, false
                 )
                 val resolvedNames = namingStrategy.resolveFileNameConflicts(names, folder)
                 setTask("Converting...")
