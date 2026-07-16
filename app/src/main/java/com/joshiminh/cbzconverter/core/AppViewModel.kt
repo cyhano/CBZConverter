@@ -221,7 +221,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
             try {
                 val format = _outputFormat.value
                 val baseNames = namingStrategy.getPdfFileNames(
-                    fileUris, false, "", _overrideMergeFiles.value, false
+                    fileUris, false, "", _overrideMergeFiles.value
                 )
                 val resolvedNames = namingStrategy.resolveFileNameConflicts(baseNames, folder)
                 setTask("Converting...")
