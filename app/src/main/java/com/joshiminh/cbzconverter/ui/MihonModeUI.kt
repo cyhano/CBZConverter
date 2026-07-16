@@ -3,6 +3,7 @@ package com.joshiminh.cbzconverter.ui
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
