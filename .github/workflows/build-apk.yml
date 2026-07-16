@@ -33,7 +33,21 @@ jobs:
 
       - name: Decode signing keystore
         run: |
-          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | tr -d ' \n\r\t' | base64 -d > app/cbzconverter.jks
+          python3 -c "
+          import base64, os
+          secret = os.environ['KEYSTORE_B64']
+          data = base64.b64decode(secret)
+          with open('app/cbzconverter.jks', 'wb') as f:
+              f.write(data)
+          print(f'Keystore written: {len(data)} bytes')
+          "
+        env:
+          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+
+      - name: Verify keystore
+        run: |
+          ls -la app/cbzconverter.jks
+          file app/cbzconverter.jks
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
