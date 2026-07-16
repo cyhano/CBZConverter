@@ -43,9 +43,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _currentSubTaskStatus = MutableStateFlow(IDLE)
     val currentSubTaskStatus = _currentSubTaskStatus.asStateFlow()
 
-    private val _maxNumberOfPages = MutableStateFlow(1_000)
-    val maxNumberOfPages = _maxNumberOfPages.asStateFlow()
-
     private val _batchSize = MutableStateFlow(200)
     val batchSize = _batchSize.asStateFlow()
 
@@ -113,12 +110,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         _mihonLoadProgress.value = 0f
         updateSelectedFileUrisFromUserInput(emptyList())
         refreshMihonManga()
-    }
-
-    fun updateMaxNumberOfPagesSizeFromUserInput(max: String) {
-        val p = max.trim().toIntOrNull()?.coerceAtLeast(1) ?: 1_000
-        _maxNumberOfPages.update { p }
-        appendTask("Max pages: $p")
     }
 
     fun updateBatchSizeFromUserInput(size: String) {
@@ -224,7 +215,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
                 setSubTask("")
                 val pdfs = convertCbzToPdf(
                     fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
-                    _maxNumberOfPages.value, _batchSize.value, resolvedNames,
+                    _batchSize.value, resolvedNames,
                     _overrideMergeFiles.value, _compressOutputPdf.value, folder
                 )
                 handleResult(pdfs)

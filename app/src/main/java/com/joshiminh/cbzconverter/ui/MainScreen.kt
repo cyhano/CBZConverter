@@ -22,7 +22,6 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
     val fileName by viewModel.selectedFileName.collectAsState()
     val fileUri by viewModel.selectedFileUri.collectAsState()
     val canMerge by viewModel.canMergeSelection.collectAsState()
-    val maxPages by viewModel.maxNumberOfPages.collectAsState()
     val batchSize by viewModel.batchSize.collectAsState()
     val overrideMerge by viewModel.overrideMergeFiles.collectAsState()
     val outUri by viewModel.overrideOutputDirectoryUri.collectAsState()
@@ -42,7 +41,7 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
         Column(Modifier.padding(inner).fillMaxSize()) {
             MihonMode(
                 viewModel, activity, isConverting, fileName, fileUri, canMerge, mihonManga,
-                taskStatus, subTaskStatus, maxPages, batchSize, overrideMerge, outUri, hasOut,
+                taskStatus, subTaskStatus, batchSize, overrideMerge, outUri, hasOut,
                 compress, autoName, filePicker, dirPicker, mihonDirUri, isLoading, progress
             ) { viewModel.checkPermissionAndSelectDirectoryAction(activity, mihonPicker) }
         }

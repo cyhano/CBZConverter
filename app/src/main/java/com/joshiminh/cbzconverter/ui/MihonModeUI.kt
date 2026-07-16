@@ -35,7 +35,7 @@ fun MihonMode(
     viewModel: MainViewModel, activity: ComponentActivity, isCurrentlyConverting: Boolean,
     selectedFileName: String, selectedFilesUri: List<Uri>, canMergeSelection: Boolean,
     mihonManga: List<MihonMangaEntry>, currentTaskStatus: String, currentSubTaskStatus: String,
-    maxPages: Int, batchSize: Int, overrideMerge: Boolean, overrideOutUri: Uri?,
+    batchSize: Int, overrideMerge: Boolean, overrideOutUri: Uri?,
     hasOut: Boolean, compress: Boolean, autoName: Boolean,
     fileLauncher: ManagedActivityResultLauncher<Array<String>, List<Uri>>,
     dirLauncher: ManagedActivityResultLauncher<Uri?, Uri?>,
@@ -91,8 +91,6 @@ fun MihonMode(
                 }
                 AnimatedVisibility(exp) {
                     Column {
-                        ConfigNumberItem("Max Pages", "Images per PDF", maxPages.toString(), !isCurrentlyConverting) { viewModel.updateMaxNumberOfPagesSizeFromUserInput(it); focusManager.clearFocus() }
-                        Spacer12Divider()
                         ConfigNumberItem("Batch Size", "Memory batch size", batchSize.toString(), !isCurrentlyConverting) { viewModel.updateBatchSizeFromUserInput(it); focusManager.clearFocus() }
                         ConfigSwitchItem("Merge All", "Combine selected CBZs", overrideMerge, !isCurrentlyConverting) { viewModel.toggleMergeFilesOverride(it) }
                         if (!canMergeSelection && selectedFilesUri.size > 1) Text("Warning: files from different manga.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
