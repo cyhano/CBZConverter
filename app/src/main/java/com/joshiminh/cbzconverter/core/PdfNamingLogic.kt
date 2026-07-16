@@ -15,27 +15,18 @@ class PdfNamingStrategy(
         filesUri: List<Uri>,
         useParentDirectoryName: Boolean,
         overrideFileName: String,
-        overrideMergeFiles: Boolean,
-        autoNameWithChapters: Boolean
+        overrideMergeFiles: Boolean
     ): List<String> {
         val baseNames = filesUri.map { it.displayName() }
         val baseNamesNoExt = baseNames.map { it.substringBeforeLast('.', it) }
 
-        // Resolve placeholders by falling back to parent directory names
+        // Resolve placeholders by falling back to file name itself
         val adjustedBaseNamesNoExt = baseNamesNoExt.toMutableList()
         if (!useParentDirectoryName) {
             filesUri.forEachIndexed { index, uri ->
-                val initialParent = DocumentFile.fromSingleUri(context, uri)?.parentFile?.name
-                    ?: uri.pathSegments.dropLast(1).lastOrNull()
-
-                val resolvedParent =
-                    initialParent?.takeUnless { isPlaceholderName(it) }
-                        ?: run {
-                            val base = baseNamesNoExt[index]
-                            if (!isPlaceholderName(base)) base else "Unknown"
-                        }
-
-                adjustedBaseNamesNoExt[index] = resolvedParent
+                if (isPlaceholderName(adjustedBaseNamesNoExt[index])) {
+                    adjustedBaseNamesNoExt[index] = "cbz_${index + 1}"
+                }
             }
 
             return when {
@@ -72,11 +63,7 @@ class PdfNamingStrategy(
                 }
         }
 
-        val chapters = if (autoNameWithChapters) {
-            baseNamesNoExt.map { extractChapterNumber(it) }
-        } else {
-            List(baseNamesNoExt.size) { null }
-        }
+        val chapters = List(baseNamesNoExt.size) { null }
 
         val defaultNames = filesUri.mapIndexed { index, _ ->
             val mangaName = mangaNames[index]
@@ -90,26 +77,7 @@ class PdfNamingStrategy(
         }.toMutableList().apply {
             if (overrideMergeFiles && filesUri.isNotEmpty()) {
                 val base = mangaNames.first()
-                if (autoNameWithChapters) {
-                    val chapterPairs = chapters.mapIndexedNotNull { _, ch ->
-                        val numeric = ch?.replace(',', '.')?.toDoubleOrNull()
-                        if (numeric != null) numeric to ch else null
-                    }
-                    if (chapterPairs.isNotEmpty()) {
-                        val minPair = chapterPairs.minByOrNull { it.first }!!
-                        val maxPair = chapterPairs.maxByOrNull { it.first }!!
-                        val rangeSuffix = if (minPair == maxPair) {
-                            "_${minPair.second}"
-                        } else {
-                            "_${minPair.second}-${maxPair.second}"
-                        }
-                        this[0] = "$base$rangeSuffix.pdf"
-                    } else {
-                        this[0] = "$base.pdf"
-                    }
-                } else {
-                    this[0] = "$base.pdf"
-                }
+                this[0] = "$base.pdf"
             }
         }
 
@@ -128,11 +96,6 @@ class PdfNamingStrategy(
             }
             else -> defaultNames
         }
-    }
-
-    private fun extractChapterNumber(name: String): String? {
-        val match = Regex("(\\d+(?:[.,]\\d+)?)(?!.*\\d)").find(name)
-        return match?.value
     }
 
     private fun isPlaceholderName(name: String): Boolean {

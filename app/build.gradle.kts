@@ -13,13 +13,22 @@ android {
         minSdk = 24
         targetSdk = 36
 
-        versionCode = 6
-        versionName = "6.5"
+        versionCode = 7
+        versionName = "7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("cbzconverter.jks")
+            storePassword = "cbzconverter123"
+            keyAlias = "cbzconverter"
+            keyPassword = "cbzconverter123"
         }
     }
 
@@ -30,6 +39,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

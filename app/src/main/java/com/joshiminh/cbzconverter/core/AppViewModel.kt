@@ -43,11 +43,11 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _currentSubTaskStatus = MutableStateFlow(IDLE)
     val currentSubTaskStatus = _currentSubTaskStatus.asStateFlow()
 
-    private val _maxNumberOfPages = MutableStateFlow(1_000)
-    val maxNumberOfPages = _maxNumberOfPages.asStateFlow()
-
     private val _batchSize = MutableStateFlow(200)
     val batchSize = _batchSize.asStateFlow()
+
+    private val _pageWidth = MutableStateFlow(1200f)
+    val pageWidth = _pageWidth.asStateFlow()
 
     private val _overrideMergeFiles = MutableStateFlow(false)
     val overrideMergeFiles = _overrideMergeFiles.asStateFlow()
@@ -70,8 +70,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _compressOutputPdf = MutableStateFlow(false)
     val compressOutputPdf = _compressOutputPdf.asStateFlow()
 
-    private val _autoNameWithChapters = MutableStateFlow(false)
-    val autoNameWithChapters = _autoNameWithChapters.asStateFlow()
 
     private val _mihonDirectoryUri = MutableStateFlow<Uri?>(null)
     val mihonDirectoryUri = _mihonDirectoryUri.asStateFlow()
@@ -104,7 +102,6 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
 
     fun toggleMergeFilesOverride(v: Boolean) { _overrideMergeFiles.update { v } }
     fun toggleCompressOutputPdf(v: Boolean) { _compressOutputPdf.update { v } }
-    fun toggleAutoNameWithChapters(v: Boolean) { _autoNameWithChapters.update { v } }
 
     fun updateMihonDirectoryUri(newUri: Uri) {
         _mihonDirectoryUri.update { newUri }
@@ -115,16 +112,16 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         refreshMihonManga()
     }
 
-    fun updateMaxNumberOfPagesSizeFromUserInput(max: String) {
-        val p = max.trim().toIntOrNull()?.coerceAtLeast(1) ?: 1_000
-        _maxNumberOfPages.update { p }
-        appendTask("Max pages: $p")
-    }
-
     fun updateBatchSizeFromUserInput(size: String) {
         val s = size.trim().toIntOrNull()?.coerceAtLeast(1) ?: 200
         _batchSize.update { s }
         appendTask("Batch size: $s")
+    }
+
+    fun updatePageWidthFromUserInput(width: String) {
+        val w = width.trim().toFloatOrNull()?.coerceAtLeast(100f) ?: 1200f
+        _pageWidth.update { w }
+        appendTask("Page width: $w")
     }
 
     fun updateOverrideOutputPathFromUserInput(uri: Uri) {
@@ -205,7 +202,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         }
     }
 
-    fun convertToPDF(fileUris: List<Uri>, useParent: Boolean = false) {
+    fun convertToPDF(fileUris: List<Uri>) {
         if (_isCurrentlyConverting.value) return
         refreshOutputDirectoryAvailability()
         val folder = getOutputFolder() ?: run {
@@ -216,16 +213,16 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             _isCurrentlyConverting.update { true }
             try {
-                val names = namingStrategy.getPdfFileNames(
-                    fileUris, useParent, "", _overrideMergeFiles.value, _autoNameWithChapters.value
+                val baseNames = namingStrategy.getPdfFileNames(
+                    fileUris, false, "", _overrideMergeFiles.value
                 )
-                val resolvedNames = namingStrategy.resolveFileNameConflicts(names, folder)
+                val resolvedNames = namingStrategy.resolveFileNameConflicts(baseNames, folder)
                 setTask("Converting...")
                 setSubTask("")
                 val pdfs = convertCbzToPdf(
                     fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
-                    _maxNumberOfPages.value, _batchSize.value, resolvedNames,
-                    _overrideMergeFiles.value, _compressOutputPdf.value, folder
+                    _batchSize.value, resolvedNames,
+                    _overrideMergeFiles.value, _compressOutputPdf.value, _pageWidth.value, folder
                 )
                 handleResult(pdfs)
             } catch (e: Exception) {

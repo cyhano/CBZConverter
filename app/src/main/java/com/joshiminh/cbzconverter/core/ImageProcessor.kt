@@ -23,7 +23,8 @@ object ImageProcessor {
         document: Document,
         cacheDir: File,
         subStepAction: (String) -> Unit,
-        compress: Boolean
+        compress: Boolean,
+        targetPageWidth: Float = 1200f
     ) {
         try {
             val temp = File(cacheDir, "temp_image").apply {
@@ -41,7 +42,13 @@ object ImageProcessor {
             } else baseFile
 
             val pdfImg = Image(ImageDataFactory.create(processed.absolutePath))
-            document.pdfDocument.defaultPageSize = PageSize(pdfImg.imageWidth, pdfImg.imageHeight)
+            val scale = targetPageWidth / pdfImg.imageWidth
+            val scaledWidth = targetPageWidth
+            val scaledHeight = pdfImg.imageHeight * scale
+            val pageSize = PageSize(scaledWidth, scaledHeight)
+            document.pdfDocument.defaultPageSize = pageSize
+            pdfImg.setWidth(scaledWidth)
+            pdfImg.setHeight(scaledHeight)
             document.add(pdfImg).flush()
 
             if (processed != baseFile) processed.delete()

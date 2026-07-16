@@ -20,16 +20,18 @@ import kotlin.math.ceil
 
 private val logger = Logger.getLogger("com.joshiminh.cbzconverter.core.ConversionUtils")
 private const val COMBINED_TEMP = "combined_temp.cbz"
+private const val MAX_PDF_SIZE_BYTES = 260L * 1024 * 1024 // 260 MB target (leaves room for PDF overhead)
+private const val CHECK_INTERVAL = 10 // Check file size every N images
 
 fun convertCbzToPdf(
     fileUri: List<Uri>,
     contextHelper: ContextHelper,
     subStepAction: (String) -> Unit = {},
-    maxPages: Int = 1_000,
     batchSize: Int = 300,
     outputFileNames: List<String>,
     merge: Boolean = false,
     compress: Boolean = false,
+    targetPageWidth: Float = 1200f,
     outputDir: DocumentFile
 ): List<DocumentFile> {
     if (fileUri.isEmpty()) return emptyList()
@@ -37,9 +39,9 @@ fun convertCbzToPdf(
     contextHelper.getCacheDir().let { if (it.exists()) it.deleteRecursively(); it.mkdirs() }
 
     return if (merge) {
-        mergeCbzAndProcess(contextHelper, fileUri, subStepAction, outputFileNames, outputFiles, outputDir, maxPages, batchSize, compress)
+        mergeCbzAndProcess(contextHelper, fileUri, subStepAction, outputFileNames, outputFiles, outputDir, batchSize, compress, targetPageWidth)
     } else {
-        processIndividualCbz(fileUri, outputFileNames, contextHelper, subStepAction, outputFiles, outputDir, maxPages, batchSize, compress)
+        processIndividualCbz(fileUri, outputFileNames, contextHelper, subStepAction, outputFiles, outputDir, batchSize, compress, targetPageWidth)
     }
 }
 
@@ -50,14 +52,14 @@ private fun processIndividualCbz(
     subStepAction: (String) -> Unit,
     outputFiles: MutableList<DocumentFile>,
     outputDir: DocumentFile,
-    maxPages: Int,
     batchSize: Int,
-    compress: Boolean
+    compress: Boolean,
+    targetPageWidth: Float
 ): List<DocumentFile> {
     fileUri.forEachIndexed { i, uri ->
         try {
             val temp = copyCbzToCache(contextHelper, subStepAction, uri)
-            createPdf(temp, subStepAction, outputFileNames[i], outputDir, maxPages, outputFiles, contextHelper, batchSize, compress)
+            createPdf(temp, subStepAction, outputFileNames[i], outputDir, outputFiles, contextHelper, batchSize, compress, targetPageWidth)
         } catch (_: IOException) {}
     }
     return outputFiles
@@ -70,9 +72,9 @@ private fun mergeCbzAndProcess(
     outputFileNames: List<String>,
     outputFiles: MutableList<DocumentFile>,
     outputDir: DocumentFile,
-    maxPages: Int,
     batchSize: Int,
-    compress: Boolean
+    compress: Boolean,
+    targetPageWidth: Float
 ): List<DocumentFile> {
     subStepAction("Merging files in Cache...")
     val combined = File(contextHelper.getCacheDir(), COMBINED_TEMP)
@@ -91,95 +93,106 @@ private fun mergeCbzAndProcess(
             } catch (_: IOException) {}
         }
     }
-    createPdf(combined, subStepAction, outputFileNames.first(), outputDir, maxPages, outputFiles, contextHelper, batchSize, compress)
+    createPdf(combined, subStepAction, outputFileNames.first(), outputDir, outputFiles, contextHelper, batchSize, compress, targetPageWidth)
     return outputFiles
 }
 
 private fun createPdf(
     temp: File, subStepAction: (String) -> Unit, outputName: String, outputDir: DocumentFile,
-    maxPages: Int, outputFiles: MutableList<DocumentFile>, contextHelper: ContextHelper,
-    batchSize: Int, compress: Boolean
+    outputFiles: MutableList<DocumentFile>, contextHelper: ContextHelper,
+    batchSize: Int, compress: Boolean, targetPageWidth: Float
 ) {
     try {
         ZipFile(temp).use { zip ->
             val total = zip.size()
             if (total == 0) return
             val entries = zip.entries().asSequence().sortedBy { it.name }.toList()
-            if (total > maxPages) {
-                val count = ceil(total.toDouble() / maxPages).toInt()
-                for (i in 0 until count) {
-                    val name = outputName.replace(".pdf", "_part-${i + 1}.pdf")
+
+            var part = 0
+            var currentEntries = mutableListOf<ZipEntry>()
+            var tempFiles = mutableListOf<File>()
+            var tempFilesSize = 0L
+
+            for ((index, entry) in entries.withIndex()) {
+                currentEntries.add(entry)
+                subStepAction("Image ${index + 1}/$total")
+
+                // Write in batches to manage memory
+                if (currentEntries.size >= batchSize) {
+                    val tempBatch = File(contextHelper.getCacheDir(), "temp_batch_${part}_${tempFiles.size}.pdf")
+                    writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress, targetPageWidth) { current ->
+                        "Part ${part + 1} - Image ${index + 1 - currentEntries.size + current}/$total"
+                    }
+                    val batchSize = tempBatch.length()
+                    tempFiles.add(tempBatch)
+                    tempFilesSize += batchSize
+                    currentEntries = mutableListOf()
+
+                    // Check if accumulated temp files exceed size limit — split immediately
+                    if (tempFilesSize >= MAX_PDF_SIZE_BYTES) {
+                        val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                        val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
+                        mergePdf(file, tempFiles, compress, contextHelper)
+                        outputFiles.add(file)
+                        part++
+                        tempFiles = mutableListOf()
+                        tempFilesSize = 0L
+                    }
+                }
+            }
+
+            // Handle remaining entries
+            if (currentEntries.isNotEmpty()) {
+                val tempBatch = File(contextHelper.getCacheDir(), "temp_batch_${part}_final.pdf")
+                writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress, targetPageWidth) { current ->
+                    "Part ${part + 1} - Image ${total - currentEntries.size + current}/$total"
+                }
+                tempFiles.add(tempBatch)
+                tempFilesSize += tempBatch.length()
+            }
+
+            // Merge remaining temp files into final output
+            if (tempFiles.isNotEmpty()) {
+                // If remaining temp files still exceed limit, split them too
+                if (tempFilesSize >= MAX_PDF_SIZE_BYTES && tempFiles.size > 1) {
+                    // Split remaining files in half
+                    val mid = tempFiles.size / 2
+                    val firstHalf = tempFiles.subList(0, mid).toMutableList()
+                    val secondHalf = tempFiles.subList(mid, tempFiles.size).toMutableList()
+
+                    val name1 = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                    val file1 = contextHelper.createDocumentFile(outputDir, name1, "application/pdf")
+                    mergePdf(file1, firstHalf, compress, contextHelper)
+                    outputFiles.add(file1)
+                    part++
+
+                    val name2 = outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                    val file2 = contextHelper.createDocumentFile(outputDir, name2, "application/pdf")
+                    mergePdf(file2, secondHalf, compress, contextHelper)
+                    outputFiles.add(file2)
+                } else {
+                    val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
                     val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
-                    val start = i * maxPages
-                    val end = ((i + 1) * maxPages).coerceAtMost(total)
-                    val sub = entries.subList(start, end)
-                    processPdfPart(sub, file, zip, contextHelper, subStepAction, batchSize, compress, i + 1, count, total, start)
+                    mergePdf(file, tempFiles, compress, contextHelper)
                     outputFiles.add(file)
                 }
-            } else {
-                val file = contextHelper.createDocumentFile(outputDir, outputName, "application/pdf")
-                processPdfPart(entries, file, zip, contextHelper, subStepAction, batchSize, compress, 1, 1, total, 0)
-                outputFiles.add(file)
             }
         }
     } finally { temp.delete() }
 }
 
-private fun processPdfPart(
-    entries: List<ZipEntry>, file: DocumentFile, zip: ZipFile, contextHelper: ContextHelper,
-    subStepAction: (String) -> Unit, batchSize: Int, compress: Boolean,
-    part: Int, totalParts: Int, totalImages: Int, globalOffset: Int
-) {
-    if (entries.size > batchSize) {
-        val tempFiles = mutableListOf<File>()
-        val batches = ceil(entries.size.toDouble() / batchSize).toInt()
-        for (i in 0 until batches) {
-            val temp = File(contextHelper.getCacheDir(), "temp_batch_$i.pdf")
-            val start = i * batchSize
-            val end = ((i + 1) * batchSize).coerceAtMost(entries.size)
-            writePdf(entries.subList(start, end), temp, zip, contextHelper, subStepAction, compress) { current ->
-                "Part $part/$totalParts - Batch ${i + 1}/$batches - Image ${globalOffset + start + current}/$totalImages"
-            }
-            tempFiles.add(temp)
-        }
-        mergePdf(file, tempFiles, compress, contextHelper)
-    } else {
-        writePdfSaf(entries, file, zip, contextHelper, subStepAction, compress) { current ->
-            "Part $part/$totalParts - Image ${globalOffset + current}/$totalImages"
-        }
-    }
-}
-
 private fun writePdf(
     entries: List<ZipEntry>, out: File, zip: ZipFile, contextHelper: ContextHelper,
-    subStepAction: (String) -> Unit, compress: Boolean, msg: (Int) -> String
+    subStepAction: (String) -> Unit, compress: Boolean, targetPageWidth: Float, msg: (Int) -> String
 ) {
     val props = if (compress) WriterProperties().setCompressionLevel(CompressionConstants.BEST_COMPRESSION) else null
     val writer = if (props != null) PdfWriter(out.absolutePath, props) else PdfWriter(out.absolutePath)
     PdfDocument(writer).use { pdfDoc ->
         Document(pdfDoc, PageSize.LETTER).use { doc ->
-            doc.setMargins(15f, 10f, 15f, 10f)
+            doc.setMargins(0f, 0f, 0f, 0f)
             entries.forEachIndexed { i, entry ->
                 subStepAction(msg(i + 1))
-                ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress)
-            }
-        }
-    }
-}
-
-private fun writePdfSaf(
-    entries: List<ZipEntry>, out: DocumentFile, zip: ZipFile, contextHelper: ContextHelper,
-    subStepAction: (String) -> Unit, compress: Boolean, msg: (Int) -> String
-) {
-    val stream = contextHelper.openOutputStream(out.uri) ?: throw IOException("Stream error")
-    val props = if (compress) WriterProperties().setCompressionLevel(CompressionConstants.BEST_COMPRESSION) else null
-    val writer = if (props != null) PdfWriter(stream, props) else PdfWriter(stream)
-    PdfDocument(writer).use { pdfDoc ->
-        Document(pdfDoc, PageSize.LETTER).use { doc ->
-            doc.setMargins(15f, 10f, 15f, 10f)
-            entries.forEachIndexed { i, entry ->
-                subStepAction(msg(i + 1))
-                ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress)
+                ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress, targetPageWidth)
             }
         }
     }

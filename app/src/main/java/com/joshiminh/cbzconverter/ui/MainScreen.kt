@@ -22,29 +22,23 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
     val fileName by viewModel.selectedFileName.collectAsState()
     val fileUri by viewModel.selectedFileUri.collectAsState()
     val canMerge by viewModel.canMergeSelection.collectAsState()
-    val maxPages by viewModel.maxNumberOfPages.collectAsState()
     val batchSize by viewModel.batchSize.collectAsState()
+    val pageWidth by viewModel.pageWidth.collectAsState()
     val overrideMerge by viewModel.overrideMergeFiles.collectAsState()
     val outUri by viewModel.overrideOutputDirectoryUri.collectAsState()
     val hasOut by viewModel.hasWritableOutputDirectory.collectAsState()
     val compress by viewModel.compressOutputPdf.collectAsState()
-    val autoName by viewModel.autoNameWithChapters.collectAsState()
-    val mihonDirUri by viewModel.mihonDirectoryUri.collectAsState()
-    val mihonManga by viewModel.mihonMangaEntries.collectAsState()
-    val isLoading by viewModel.isLoadingMihonManga.collectAsState()
-    val progress by viewModel.mihonLoadProgress.collectAsState()
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.updateSelectedFileUrisFromUserInput(it) }
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateOverrideOutputPathFromUserInput(it) } }
-    val mihonPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateMihonDirectoryUri(it) } }
 
     Scaffold { inner ->
         Column(Modifier.padding(inner).fillMaxSize()) {
             MihonMode(
-                viewModel, activity, isConverting, fileName, fileUri, canMerge, mihonManga,
-                taskStatus, subTaskStatus, maxPages, batchSize, overrideMerge, outUri, hasOut,
-                compress, autoName, filePicker, dirPicker, mihonDirUri, isLoading, progress
-            ) { viewModel.checkPermissionAndSelectDirectoryAction(activity, mihonPicker) }
+                viewModel, activity, isConverting, fileName, fileUri, canMerge,
+                taskStatus, subTaskStatus, batchSize, pageWidth, overrideMerge, outUri, hasOut,
+                compress, filePicker, dirPicker
+            ) { viewModel.checkPermissionAndSelectFileAction(activity, filePicker) }
         }
     }
 }
