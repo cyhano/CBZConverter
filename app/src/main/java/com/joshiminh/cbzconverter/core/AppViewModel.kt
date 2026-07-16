@@ -46,6 +46,9 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _batchSize = MutableStateFlow(200)
     val batchSize = _batchSize.asStateFlow()
 
+    private val _pageWidth = MutableStateFlow(1200f)
+    val pageWidth = _pageWidth.asStateFlow()
+
     private val _overrideMergeFiles = MutableStateFlow(false)
     val overrideMergeFiles = _overrideMergeFiles.asStateFlow()
 
@@ -116,6 +119,12 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         val s = size.trim().toIntOrNull()?.coerceAtLeast(1) ?: 200
         _batchSize.update { s }
         appendTask("Batch size: $s")
+    }
+
+    fun updatePageWidthFromUserInput(width: String) {
+        val w = width.trim().toFloatOrNull()?.coerceAtLeast(100f) ?: 1200f
+        _pageWidth.update { w }
+        appendTask("Page width: $w")
     }
 
     fun updateOverrideOutputPathFromUserInput(uri: Uri) {
@@ -216,7 +225,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
                 val pdfs = convertCbzToPdf(
                     fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
                     _batchSize.value, resolvedNames,
-                    _overrideMergeFiles.value, _compressOutputPdf.value, folder
+                    _overrideMergeFiles.value, _compressOutputPdf.value, _pageWidth.value, folder
                 )
                 handleResult(pdfs)
             } catch (e: Exception) {

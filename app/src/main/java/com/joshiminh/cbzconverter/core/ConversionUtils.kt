@@ -31,6 +31,7 @@ fun convertCbzToPdf(
     outputFileNames: List<String>,
     merge: Boolean = false,
     compress: Boolean = false,
+    targetPageWidth: Float = 1200f,
     outputDir: DocumentFile
 ): List<DocumentFile> {
     if (fileUri.isEmpty()) return emptyList()
@@ -38,9 +39,9 @@ fun convertCbzToPdf(
     contextHelper.getCacheDir().let { if (it.exists()) it.deleteRecursively(); it.mkdirs() }
 
     return if (merge) {
-        mergeCbzAndProcess(contextHelper, fileUri, subStepAction, outputFileNames, outputFiles, outputDir, batchSize, compress)
+        mergeCbzAndProcess(contextHelper, fileUri, subStepAction, outputFileNames, outputFiles, outputDir, batchSize, compress, targetPageWidth)
     } else {
-        processIndividualCbz(fileUri, outputFileNames, contextHelper, subStepAction, outputFiles, outputDir, batchSize, compress)
+        processIndividualCbz(fileUri, outputFileNames, contextHelper, subStepAction, outputFiles, outputDir, batchSize, compress, targetPageWidth)
     }
 }
 
@@ -52,12 +53,13 @@ private fun processIndividualCbz(
     outputFiles: MutableList<DocumentFile>,
     outputDir: DocumentFile,
     batchSize: Int,
-    compress: Boolean
+    compress: Boolean,
+    targetPageWidth: Float
 ): List<DocumentFile> {
     fileUri.forEachIndexed { i, uri ->
         try {
             val temp = copyCbzToCache(contextHelper, subStepAction, uri)
-            createPdf(temp, subStepAction, outputFileNames[i], outputDir, outputFiles, contextHelper, batchSize, compress)
+            createPdf(temp, subStepAction, outputFileNames[i], outputDir, outputFiles, contextHelper, batchSize, compress, targetPageWidth)
         } catch (_: IOException) {}
     }
     return outputFiles
@@ -71,7 +73,8 @@ private fun mergeCbzAndProcess(
     outputFiles: MutableList<DocumentFile>,
     outputDir: DocumentFile,
     batchSize: Int,
-    compress: Boolean
+    compress: Boolean,
+    targetPageWidth: Float
 ): List<DocumentFile> {
     subStepAction("Merging files in Cache...")
     val combined = File(contextHelper.getCacheDir(), COMBINED_TEMP)
@@ -90,14 +93,14 @@ private fun mergeCbzAndProcess(
             } catch (_: IOException) {}
         }
     }
-    createPdf(combined, subStepAction, outputFileNames.first(), outputDir, outputFiles, contextHelper, batchSize, compress)
+    createPdf(combined, subStepAction, outputFileNames.first(), outputDir, outputFiles, contextHelper, batchSize, compress, targetPageWidth)
     return outputFiles
 }
 
 private fun createPdf(
     temp: File, subStepAction: (String) -> Unit, outputName: String, outputDir: DocumentFile,
     outputFiles: MutableList<DocumentFile>, contextHelper: ContextHelper,
-    batchSize: Int, compress: Boolean
+    batchSize: Int, compress: Boolean, targetPageWidth: Float
 ) {
     try {
         ZipFile(temp).use { zip ->
@@ -131,7 +134,7 @@ private fun createPdf(
                 // Write in batches to manage memory
                 if (currentEntries.size >= batchSize) {
                     val tempBatch = File(contextHelper.getCacheDir(), "temp_batch_${part}_${tempFiles.size}.pdf")
-                    writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress) { current ->
+                    writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress, targetPageWidth) { current ->
                         "Part ${part + 1} - Image ${index + 1 - currentEntries.size + current}/$total"
                     }
                     tempFiles.add(tempBatch)
@@ -153,7 +156,7 @@ private fun createPdf(
             // Handle remaining entries
             if (currentEntries.isNotEmpty()) {
                 val tempBatch = File(contextHelper.getCacheDir(), "temp_batch_${part}_final.pdf")
-                writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress) { current ->
+                writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress, targetPageWidth) { current ->
                     "Part ${part + 1} - Image ${total - currentEntries.size + current}/$total"
                 }
                 tempFiles.add(tempBatch)
@@ -172,7 +175,7 @@ private fun createPdf(
 
 private fun writePdf(
     entries: List<ZipEntry>, out: File, zip: ZipFile, contextHelper: ContextHelper,
-    subStepAction: (String) -> Unit, compress: Boolean, msg: (Int) -> String
+    subStepAction: (String) -> Unit, compress: Boolean, targetPageWidth: Float, msg: (Int) -> String
 ) {
     val props = if (compress) WriterProperties().setCompressionLevel(CompressionConstants.BEST_COMPRESSION) else null
     val writer = if (props != null) PdfWriter(out.absolutePath, props) else PdfWriter(out.absolutePath)
@@ -181,7 +184,7 @@ private fun writePdf(
             doc.setMargins(0f, 0f, 0f, 0f)
             entries.forEachIndexed { i, entry ->
                 subStepAction(msg(i + 1))
-                ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress)
+                ImageProcessor.extractImageAndAddToPDF(zip, entry, doc, contextHelper.getCacheDir(), subStepAction, compress, targetPageWidth)
             }
         }
     }

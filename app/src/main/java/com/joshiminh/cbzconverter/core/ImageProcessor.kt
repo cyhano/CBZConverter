@@ -16,7 +16,6 @@ object ImageProcessor {
     private val logger = Logger.getLogger(ImageProcessor::class.java.name)
     private const val DEFAULT_JPEG_QUALITY = 90
     private const val COMPRESSED_JPEG_QUALITY = 75
-    private const val TARGET_PAGE_WIDTH = 750f
 
     fun extractImageAndAddToPDF(
         zipFile: ZipFile,
@@ -24,7 +23,8 @@ object ImageProcessor {
         document: Document,
         cacheDir: File,
         subStepAction: (String) -> Unit,
-        compress: Boolean
+        compress: Boolean,
+        targetPageWidth: Float = 1200f
     ) {
         try {
             val temp = File(cacheDir, "temp_image").apply {
@@ -42,8 +42,8 @@ object ImageProcessor {
             } else baseFile
 
             val pdfImg = Image(ImageDataFactory.create(processed.absolutePath))
-            val scale = TARGET_PAGE_WIDTH / pdfImg.imageWidth
-            val scaledWidth = TARGET_PAGE_WIDTH
+            val scale = targetPageWidth / pdfImg.imageWidth
+            val scaledWidth = targetPageWidth
             val scaledHeight = pdfImg.imageHeight * scale
             val pageSize = PageSize(scaledWidth, scaledHeight)
             document.pdfDocument.defaultPageSize = pageSize
