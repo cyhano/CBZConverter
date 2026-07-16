@@ -20,8 +20,8 @@ import kotlin.math.ceil
 
 private val logger = Logger.getLogger("com.joshiminh.cbzconverter.core.ConversionUtils")
 private const val COMBINED_TEMP = "combined_temp.cbz"
-private const val MAX_PDF_SIZE_BYTES = 280L * 1024 * 1024 // 280 MB
-private const val CHECK_INTERVAL = 20 // Check file size every N images
+private const val MAX_PDF_SIZE_BYTES = 260L * 1024 * 1024 // 260 MB target (leaves room for PDF overhead)
+private const val CHECK_INTERVAL = 10 // Check file size every N images
 
 fun convertCbzToPdf(
     fileUri: List<Uri>,
@@ -111,25 +111,11 @@ private fun createPdf(
             var part = 0
             var currentEntries = mutableListOf<ZipEntry>()
             var tempFiles = mutableListOf<File>()
+            var tempFilesSize = 0L
 
             for ((index, entry) in entries.withIndex()) {
                 currentEntries.add(entry)
                 subStepAction("Image ${index + 1}/$total")
-
-                // Periodically check if the current batch temp file exceeds size limit
-                if (currentEntries.size % CHECK_INTERVAL == 0 && tempFiles.isNotEmpty()) {
-                    val lastTemp = tempFiles.last()
-                    if (lastTemp.length() >= MAX_PDF_SIZE_BYTES) {
-                        // Finalize current part
-                        val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
-                        val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
-                        mergePdf(file, tempFiles, compress, contextHelper)
-                        outputFiles.add(file)
-                        part++
-                        tempFiles = mutableListOf()
-                        currentEntries = mutableListOf()
-                    }
-                }
 
                 // Write in batches to manage memory
                 if (currentEntries.size >= batchSize) {
@@ -137,18 +123,20 @@ private fun createPdf(
                     writePdf(currentEntries, tempBatch, zip, contextHelper, subStepAction, compress, targetPageWidth) { current ->
                         "Part ${part + 1} - Image ${index + 1 - currentEntries.size + current}/$total"
                     }
+                    val batchSize = tempBatch.length()
                     tempFiles.add(tempBatch)
+                    tempFilesSize += batchSize
                     currentEntries = mutableListOf()
 
-                    // Check if accumulated temp files exceed size limit
-                    val totalSize = tempFiles.sumOf { it.length() }
-                    if (totalSize >= MAX_PDF_SIZE_BYTES) {
+                    // Check if accumulated temp files exceed size limit — split immediately
+                    if (tempFilesSize >= MAX_PDF_SIZE_BYTES) {
                         val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
                         val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
                         mergePdf(file, tempFiles, compress, contextHelper)
                         outputFiles.add(file)
                         part++
                         tempFiles = mutableListOf()
+                        tempFilesSize = 0L
                     }
                 }
             }
@@ -160,14 +148,34 @@ private fun createPdf(
                     "Part ${part + 1} - Image ${total - currentEntries.size + current}/$total"
                 }
                 tempFiles.add(tempBatch)
+                tempFilesSize += tempBatch.length()
             }
 
             // Merge remaining temp files into final output
             if (tempFiles.isNotEmpty()) {
-                val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
-                val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
-                mergePdf(file, tempFiles, compress, contextHelper)
-                outputFiles.add(file)
+                // If remaining temp files still exceed limit, split them too
+                if (tempFilesSize >= MAX_PDF_SIZE_BYTES && tempFiles.size > 1) {
+                    // Split remaining files in half
+                    val mid = tempFiles.size / 2
+                    val firstHalf = tempFiles.subList(0, mid).toMutableList()
+                    val secondHalf = tempFiles.subList(mid, tempFiles.size).toMutableList()
+
+                    val name1 = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                    val file1 = contextHelper.createDocumentFile(outputDir, name1, "application/pdf")
+                    mergePdf(file1, firstHalf, compress, contextHelper)
+                    outputFiles.add(file1)
+                    part++
+
+                    val name2 = outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                    val file2 = contextHelper.createDocumentFile(outputDir, name2, "application/pdf")
+                    mergePdf(file2, secondHalf, compress, contextHelper)
+                    outputFiles.add(file2)
+                } else {
+                    val name = if (part == 0) outputName else outputName.replace(".pdf", "_part-${part + 1}.pdf")
+                    val file = contextHelper.createDocumentFile(outputDir, name, "application/pdf")
+                    mergePdf(file, tempFiles, compress, contextHelper)
+                    outputFiles.add(file)
+                }
             }
         }
     } finally { temp.delete() }
