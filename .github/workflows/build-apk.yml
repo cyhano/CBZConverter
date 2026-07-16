@@ -33,7 +33,7 @@ jobs:
 
       - name: Decode signing keystore
         run: |
-          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | base64 -d > app/cbzconverter.jks
+          echo "${{ secrets.SIGNING_KEYSTORE_BASE64 }}" | tr -d ' \n\r\t' | base64 -d > app/cbzconverter.jks
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
