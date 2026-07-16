@@ -256,7 +256,7 @@ private fun imageXhtml(imageName: String, ext: String): String {
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <title>Page</title>
-  <style type="text/css">html,body{margin:0;padding:0;width:100%;height:100%;} img{max-width:100%;max-height:100%;display:block;margin:auto;}</style>
+  <style type="text/css">html,body{margin:0;padding:0;width:1200px;max-width:100%;margin:auto;} img{width:100%;display:block;}</style>
 </head>
 <body>
   <div><img src="../images/$imageName" alt="page" /></div>
