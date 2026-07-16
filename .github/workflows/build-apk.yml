@@ -36,7 +36,13 @@ jobs:
           python3 -c "
           import base64, os
           secret = os.environ['KEYSTORE_B64']
-          data = base64.b64decode(secret)
+          print(f'Secret length: {len(secret)}')
+          print(f'First 30 chars: {secret[:30]}')
+          print(f'Last 30 chars: {secret[-30:]}')
+          # Strip any whitespace/newlines just in case
+          clean = secret.strip().replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', '')
+          print(f'Cleaned length: {len(clean)}')
+          data = base64.b64decode(clean)
           with open('app/cbzconverter.jks', 'wb') as f:
               f.write(data)
           print(f'Keystore written: {len(data)} bytes')
