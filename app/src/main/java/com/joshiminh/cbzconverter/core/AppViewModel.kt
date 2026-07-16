@@ -19,6 +19,8 @@ import java.util.LinkedHashSet
 import java.util.logging.Level
 import java.util.logging.Logger
 
+enum class OutputFormat { PDF, EPUB }
+
 class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     class Factory(private val contextHelper: ContextHelper) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T = MainViewModel(contextHelper) as T
@@ -70,6 +72,9 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
     private val _compressOutputPdf = MutableStateFlow(false)
     val compressOutputPdf = _compressOutputPdf.asStateFlow()
 
+    private val _outputFormat = MutableStateFlow(OutputFormat.PDF)
+    val outputFormat = _outputFormat.asStateFlow()
+
 
     private val _mihonDirectoryUri = MutableStateFlow<Uri?>(null)
     val mihonDirectoryUri = _mihonDirectoryUri.asStateFlow()
@@ -102,6 +107,7 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
 
     fun toggleMergeFilesOverride(v: Boolean) { _overrideMergeFiles.update { v } }
     fun toggleCompressOutputPdf(v: Boolean) { _compressOutputPdf.update { v } }
+    fun setOutputFormat(f: OutputFormat) { _outputFormat.update { f } }
 
     fun updateMihonDirectoryUri(newUri: Uri) {
         _mihonDirectoryUri.update { newUri }
@@ -213,27 +219,34 @@ class MainViewModel(private val contextHelper: ContextHelper) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             _isCurrentlyConverting.update { true }
             try {
-                val names = namingStrategy.getPdfFileNames(
+                val format = _outputFormat.value
+                val baseNames = namingStrategy.getPdfFileNames(
                     fileUris, false, "", _overrideMergeFiles.value, false
                 )
-                val resolvedNames = namingStrategy.resolveFileNameConflicts(names, folder)
+                val resolvedNames = namingStrategy.resolveFileNameConflicts(baseNames, folder)
                 setTask("Converting...")
                 setSubTask("")
-                val pdfs = convertCbzToPdf(
-                    fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
-                    _batchSize.value, resolvedNames,
-                    _overrideMergeFiles.value, _compressOutputPdf.value, _pageWidth.value, folder
-                )
-                handleResult(pdfs)
+                val outputs = when (format) {
+                    OutputFormat.PDF -> convertCbzToPdf(
+                        fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
+                        _batchSize.value, resolvedNames,
+                        _overrideMergeFiles.value, _compressOutputPdf.value, _pageWidth.value, folder
+                    )
+                    OutputFormat.EPUB -> convertCbzToEpub(
+                        fileUris, contextHelper, { viewModelScope.launch(Dispatchers.Main) { appendSubTask(it) } },
+                        resolvedNames, _overrideMergeFiles.value, folder
+                    )
+                }
+                handleResult(outputs, format)
             } catch (e: Exception) {
                 showToastAndTask("Failed: ${e.message}", Toast.LENGTH_LONG, Level.WARNING)
             } finally { _isCurrentlyConverting.update { false } }
         }
     }
 
-    private suspend fun handleResult(pdfs: List<DocumentFile>) {
-        val msg = if (pdfs.size == 1) "Saved: ${pdfs.first().name}" else "Saved: ${pdfs.size} PDFs"
-        showToastAndTask(msg, Toast.LENGTH_LONG)
+    private suspend fun handleResult(files: List<DocumentFile>, format: OutputFormat) {
+        val label = if (files.size == 1) "Saved: ${files.first().name}" else "Saved: ${files.size} ${format.name} files"
+        showToastAndTask(label, Toast.LENGTH_LONG)
         appendTask("Completed")
     }
 

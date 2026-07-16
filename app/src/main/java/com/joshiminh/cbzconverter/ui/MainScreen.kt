@@ -13,6 +13,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.joshiminh.cbzconverter.core.MainViewModel
+import com.joshiminh.cbzconverter.core.OutputFormat
 
 @Composable
 fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
@@ -28,6 +29,7 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
     val outUri by viewModel.overrideOutputDirectoryUri.collectAsState()
     val hasOut by viewModel.hasWritableOutputDirectory.collectAsState()
     val compress by viewModel.compressOutputPdf.collectAsState()
+    val outputFormat by viewModel.outputFormat.collectAsState()
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { viewModel.updateSelectedFileUrisFromUserInput(it) }
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let { viewModel.updateOverrideOutputPathFromUserInput(it) } }
@@ -37,7 +39,7 @@ fun MihonScreen(activity: ComponentActivity, viewModel: MainViewModel) {
             MihonMode(
                 viewModel, activity, isConverting, fileName, fileUri, canMerge,
                 taskStatus, subTaskStatus, batchSize, pageWidth, overrideMerge, outUri, hasOut,
-                compress, filePicker, dirPicker
+                compress, outputFormat, filePicker, dirPicker
             ) { viewModel.checkPermissionAndSelectFileAction(activity, filePicker) }
         }
     }

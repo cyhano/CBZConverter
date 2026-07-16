@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.joshiminh.cbzconverter.R
 import com.joshiminh.cbzconverter.core.MainViewModel
+import com.joshiminh.cbzconverter.core.OutputFormat
 
 @Composable
 fun MihonMode(
@@ -29,7 +30,7 @@ fun MihonMode(
     selectedFileName: String, selectedFilesUri: List<Uri>, canMergeSelection: Boolean,
     currentTaskStatus: String, currentSubTaskStatus: String,
     batchSize: Int, pageWidth: Float, overrideMerge: Boolean, overrideOutUri: Uri?,
-    hasOut: Boolean, compress: Boolean,
+    hasOut: Boolean, compress: Boolean, outputFormat: OutputFormat,
     fileLauncher: ManagedActivityResultLauncher<Array<String>, List<Uri>>,
     dirLauncher: ManagedActivityResultLauncher<Uri?, Uri?>,
     onSelectFiles: () -> Unit
@@ -63,13 +64,32 @@ fun MihonMode(
                 }
                 AnimatedVisibility(exp) {
                     Column {
+                        // Output Format selector
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Output Format", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                            FilterChip(
+                                selected = outputFormat == OutputFormat.PDF,
+                                onClick = { viewModel.setOutputFormat(OutputFormat.PDF) },
+                                label = { Text("PDF") },
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                            FilterChip(
+                                selected = outputFormat == OutputFormat.EPUB,
+                                onClick = { viewModel.setOutputFormat(OutputFormat.EPUB) },
+                                label = { Text("EPUB") }
+                            )
+                        }
+                        Spacer12Divider()
                         ConfigNumberItem("Batch Size", "Memory batch size", batchSize.toString(), !isCurrentlyConverting) { viewModel.updateBatchSizeFromUserInput(it); focusManager.clearFocus() }
                         Spacer12Divider()
                         ConfigNumberItem("Page Width", "Target page width (pt)", pageWidth.toInt().toString(), !isCurrentlyConverting) { viewModel.updatePageWidthFromUserInput(it); focusManager.clearFocus() }
                         ConfigSwitchItem("Merge All", "Combine selected CBZs", overrideMerge, !isCurrentlyConverting) { viewModel.toggleMergeFilesOverride(it) }
                         Spacer12Divider()
-                        ConfigSwitchItem("Compress", "Reduce file size", compress, !isCurrentlyConverting) { viewModel.toggleCompressOutputPdf(it) }
-                        Spacer12Divider()
+                        // PDF-only options
+                        if (outputFormat == OutputFormat.PDF) {
+                            ConfigSwitchItem("Compress", "Reduce file size", compress, !isCurrentlyConverting) { viewModel.toggleCompressOutputPdf(it) }
+                            Spacer12Divider()
+                        }
                         ConfigButtonItem("Output Folder", "Where to save PDFs", overrideOutUri?.toString() ?: "Not set", "Select Folder", !isCurrentlyConverting) { viewModel.checkPermissionAndSelectDirectoryAction(activity, dirLauncher) }
                     }
                 }
