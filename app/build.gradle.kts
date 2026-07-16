@@ -23,6 +23,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("cbzconverter.jks")
+            storePassword = "cbzconverter123"
+            keyAlias = "cbzconverter"
+            keyPassword = "cbzconverter123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -45,15 +54,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    signingConfigs {
-        create("release") {
-            storeFile = file("cbzconverter.jks")
-            storePassword = "cbzconverter123"
-            keyAlias = "cbzconverter"
-            keyPassword = "cbzconverter123"
-        }
     }
 }
 
