@@ -1,5 +1,7 @@
 package com.joshiminh.cbzconverter.core
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
@@ -175,9 +177,9 @@ private fun writeEpub(
 
             subStepAction("Part $partNum - Image ${i + 1}/${entries.size}")
 
-            // Copy image
+            // Copy image — normalize to 1200px width
             out.putNextEntry(ZipEntry("$IMAGES_DIR/$imageName"))
-            zip.getInputStream(entry).use { it.copyTo(out) }
+            normalizeImageWidth(zip, entry, out, 1200)
             out.closeEntry()
 
             // Write XHTML page
@@ -256,10 +258,60 @@ private fun imageXhtml(imageName: String, ext: String): String {
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <title>Page</title>
-  <style type="text/css">html,body{margin:0;padding:0;width:1200px;max-width:100%;margin:auto;} img{width:100%;display:block;}</style>
+  <style type="text/css">html,body{margin:0;padding:0;} img{width:100%;display:block;}</style>
 </head>
 <body>
   <div><img src="../images/$imageName" alt="page" /></div>
 </body>
 </html>"""
+}
+
+private fun normalizeImageWidth(zip: ZipFile, entry: ZipEntry, out: OutputStream, targetWidth: Int) {
+    val tempFile = File.createTempFile("epub_img", ".tmp")
+    try {
+        zip.getInputStream(entry).use { input ->
+            tempFile.outputStream().use { input.copyTo(it) }
+        }
+
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(tempFile.absolutePath, opts)
+        val origW = opts.outWidth
+        val origH = opts.outHeight
+
+        if (origW <= 0 || origH <= 0) {
+            // Can't decode, copy original
+            tempFile.inputStream().use { it.copyTo(out) }
+            return
+        }
+
+        if (origW == targetWidth) {
+            // Already target width, copy as-is
+            tempFile.inputStream().use { it.copyTo(out) }
+            return
+        }
+
+        // Calculate sample size for memory efficiency
+        val sampleSize = if (origW > targetWidth * 2) {
+            origW / (targetWidth * 2)
+        } else 1
+
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath, decodeOpts) ?: run {
+            tempFile.inputStream().use { it.copyTo(out) }
+            return
+        }
+
+        // Scale to exact target width
+        val scaled = if (bitmap.width != targetWidth) {
+            val ratio = targetWidth.toFloat() / bitmap.width
+            val targetHeight = (bitmap.height * ratio).toInt()
+            Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true).also { bitmap.recycle() }
+        } else bitmap
+
+        // Write as JPEG (universal EPUB support)
+        scaled.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        scaled.recycle()
+    } finally {
+        tempFile.delete()
+    }
 }
